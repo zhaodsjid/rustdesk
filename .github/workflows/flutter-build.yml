@@ -335,6 +335,7 @@ jobs:
         env:
           SERVER: ${{ secrets.RENDEZVOUS_SERVERS }}
           SERVER_KEY: ${{ secrets.RS_PUB_KEY }}
+          PYTHONIOENCODING: utf-8
         run: |
           python3 - <<'PY'
           import os, json, re
