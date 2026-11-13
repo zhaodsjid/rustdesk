@@ -330,6 +330,36 @@ jobs:
         if: ${{ matrix.job.arch == 'aarch64' }}
         shell: bash
         run: echo "SODIUM_LIB_DIR=$VCPKG_ROOT/installed/${{ matrix.job.vcpkg-triplet }}/lib" >> "$GITHUB_ENV"
+      - name: Configure built-in server
+        shell: bash
+        env:
+          SERVER: ${{ secrets.RENDEZVOUS_SERVERS }}
+          SERVER_KEY: ${{ secrets.RS_PUB_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os, json, re
+          from pathlib import Path
+
+          server = os.environ["SERVER"].strip()
+          key = os.environ["SERVER_KEY"].strip()
+          if not server or not key:
+              raise SystemExit("服务器地址或公钥为空，请检查仓库 Secrets")
+
+          path = Path("libs/hbb_common/src/config.rs")
+          text = path.read_text(encoding="utf-8")
+          replacements = {
+              r"(?m)^pub const RENDEZVOUS_SERVERS:[^\r\n]*":
+                  f"pub const RENDEZVOUS_SERVERS: &[&str] = &[{json.dumps(server)}];",
+              r"(?m)^pub const RS_PUB_KEY:[^\r\n]*":
+                  f"pub const RS_PUB_KEY: &str = {json.dumps(key)};",
+          }
+          for pattern, replacement in replacements.items():
+              text, count = re.subn(pattern, lambda _: replacement, text)
+              if count != 1:
+                  raise SystemExit("源码常量匹配失败")
+          path.write_text(text, encoding="utf-8")
+          print("服务器地址和公钥已写入源码")
+          PY
 
       - name: Build rustdesk
         run: |
